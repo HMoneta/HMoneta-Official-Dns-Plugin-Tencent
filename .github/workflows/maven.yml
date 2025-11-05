@@ -1,0 +1,46 @@
+# This workflow will build a Java project with Maven, and cache/restore any dependencies to improve the workflow execution time
+# For more information see: https://docs.github.com/en/actions/automating-builds-and-tests/building-and-testing-java-with-maven
+# This workflow uses actions that are not certified by GitHub.
+# They are provided by a third-party and are governed by
+# separate terms of service, privacy policy, and support
+# documentation.
+name: Java CI with Maven
+
+on:
+  push:
+    branches: [ "main" ]
+    tags: [ "v*" ]  # 添加：当推送以 v 开头的 tag 时触发发布（例如 v1.0.0）
+  pull_request:
+    branches: [ "main" ]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v4
+    - name: Set up JDK 17
+      uses: actions/setup-java@v4
+      with:
+        java-version: '17'
+        distribution: 'temurin'
+        cache: maven
+    - name: Build with Maven
+      run: mvn -B package --file pom.xml
+    # Optional: Uploads the full dependency graph to GitHub to improve the quality of Dependabot alerts this repository can receive
+    - name: Update dependency graph
+      uses: advanced-security/maven-dependency-submission-action@571e99aab1055c2e71a1e2309b9691de18d6b7d6
+
+    # 新增：仅在 tag 推送时执行发布步骤
+    - name: Release to GitHub
+      if: startsWith(github.ref, 'refs/tags/')  # 条件：仅当是 tag 触发时执行
+      uses: softprops/action-gh-release@v2  # 使用这个 Action 简化创建 Release 和上传
+      with:
+        files: |  # 要上传的文件路径（根据您的项目调整，例如 target/*.jar）
+          target/*.zip  # 假设打包生成 zip 文件；如果有多个，用换行列出
+        tag_name: ${{ github.ref_name }}  # 使用 tag 名作为 Release 版本
+        name: Release ${{ github.ref_name }}  # Release 标题
+        body: "Automated release from GitHub Actions"  # Release 描述（可自定义）
+        draft: false  # 是否草稿（false 为直接发布）
+        prerelease: false  # 是否预发布
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}  # 使用内置 Token
